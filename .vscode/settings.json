@@ -1,0 +1,18 @@
+{
+  "C_Cpp.intelliSenseEngine": "default",
+  "idf.openOcdConfigs": [
+    "board/esp32s3-builtin.cfg"
+  ],
+  "idf.port": "/dev/tty.usbmodem5B5E1221121",
+  "idf.currentSetup": "/Users/eloi/.espressif/v6.0/esp-idf",
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32s3"
+  },
+  "clangd.path": "/Users/eloi/.espressif/tools/esp-clang/esp-20.1.1_20250829/esp-clang/bin/clangd",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=/Users/eloi/Workspace/studio/studio-midi-gateway/build"
+  ],
+  "idf.flashType": "UART"
+}
