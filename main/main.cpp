@@ -1,4 +1,6 @@
 #include "Gateway.hpp"
+#include "StatusLed.hpp"
+#include "UsbMidi.hpp"
 
 #include "esp_err.h"
 #include "esp_log.h"
@@ -12,6 +14,11 @@
 #define NETWORKING_WIFI_CHANNEL 1
 
 static constexpr const char *TAG = "main";
+
+static networking::Gateway gateway;
+static midi::UsbMidi usbMidi;
+static StatusLed statusLed;
+static constexpr std::array<uint8_t, networking::CONNECT_KEY_LEN> CONNECT_KEY = {0x4B, 0x4E, 0x4F, 0x42};
 
 static esp_err_t nvs_init() {
   esp_err_t ret = nvs_flash_init();
@@ -35,13 +42,36 @@ static void wifiInit() {
   ESP_ERROR_CHECK(esp_wifi_set_channel(NETWORKING_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE));
 }
 
-static networking::Gateway gateway;
+static void onFrameReceived(const networking::Frame &frame) {
+  if (frame.payloadLen < 3) {
+    ESP_LOGW(TAG, "frame too short: len=%zu", frame.payloadLen);
+    return;
+  }
+
+  const uint8_t status = frame.payload[0];
+  const uint8_t cc = frame.payload[1];
+  const uint8_t value = frame.payload[2];
+
+  if ((status & 0xF0) != 0xB0) {
+    ESP_LOGW(TAG, "unexpected MIDI status: 0x%02X", status);
+    return;
+  }
+
+  const uint8_t channel = (status & 0x0F) + 1;
+  ESP_LOGI(TAG, "CC ch=%u cc=%u value=%u", channel, cc, value);
+  usbMidi.sendCc(channel, cc, value);
+}
 
 extern "C" void app_main() {
   wifiInit();
+  ESP_ERROR_CHECK(usbMidi.begin());
+  ESP_ERROR_CHECK(statusLed.begin());
 
-  gateway.setOnFrameCb(
-      [](const networking::Frame &frame) { ESP_LOGI(TAG, "frame received len=%zu", frame.payloadLen); });
-
+  gateway.setOnFrameCb(onFrameReceived);
+  gateway.setOnNodeCountChangeCb([](uint32_t count) {
+    ESP_LOGI(TAG, "Node count changed: %lu", count);
+    statusLed.setNodeCount(count);
+  });
+  gateway.setConnectKey(CONNECT_KEY);
   ESP_ERROR_CHECK(gateway.begin());
 }
